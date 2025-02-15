@@ -33,6 +33,7 @@
   },
   "ChopAnimDict": "melee@large_wpn@streamed_core_fps",
   "ChopAnim":  "car_side_attack_a",
+  "Hatchet": "prop_w_me_hatchet",
   "TreeRespawnDelay": 10000,
   "TreeLocations": {
     "Region1": [

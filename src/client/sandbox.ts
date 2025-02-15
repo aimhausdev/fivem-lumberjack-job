@@ -3,6 +3,51 @@ import Config from '@common/config'
 
 const print = (...args: any[]) => Config.debug && console.log(...args)
 
+const VALID_WEATHER_TYPES = [
+	'CLEAR',
+	'EXTRASUNNY',
+	'CLOUDS',
+	'OVERCAST',
+	'RAIN',
+	'CLEARING',
+	'THUNDER',
+	'SMOG',
+	'FOGGY',
+	'XMAS',
+	'SNOW',
+	'SNOWLIGHT',
+	'BLIZZARD',
+	'HALLOWEEN',
+	'NEUTRAL',
+]
+
+const teleport = (x: number, y: number, z: number) => SetEntityCoords(PlayerPedId(), x, y, z, false, false, false, false)
+
+RegisterCommand('test', async (source: number, args: string[]) => {
+	const {x, y, z} = Config.DebugPlayerSpawnCoords
+	teleport(x, y, z)
+}, false)
+
+RegisterCommand('god', async () => {
+	SetPlayerInvincible(PlayerId(), true)
+}, false)
+
+RegisterCommand('time', async (source: number, args: string[]) => {
+	const hours = parseInt(args[0]) || 22
+	const minutes = parseInt(args[1]) || 0
+	const seconds = parseInt(args[2]) || 0
+	NetworkOverrideClockTime(hours, minutes, seconds)
+}, false)
+
+RegisterCommand('weather', async (source: number, args: string[]) => {
+	const weather = (args[0] || '').toUpperCase()
+	if (!VALID_WEATHER_TYPES.includes(weather)) {
+		print(`${weather} is not a valid weather type!`)
+		return
+	}
+	SetOverrideWeather(weather)
+}, false)
+
 RegisterCommand("sv", async (source:number, args: string[], rawCommand:string) => {
 	const [model] = args
 	const modelHash = GetHashKey(model)
