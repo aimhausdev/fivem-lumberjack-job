@@ -1,4 +1,4 @@
-import TreeManager from './TreeManager'
+import TreeManager from './TreeBlipManager'
 import { JobState } from './constants'
 import { print } from './utils'
 
