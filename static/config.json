@@ -25,12 +25,18 @@
   "Logs": [
     "prop_log_02"
   ],
-  "MaxDist": 2,
+  "MaxRaycastHitDistance": 2,
   "DebugPlayerSpawnCoords": {
     "x": -838.4115,
     "y": 5404.3364,
     "z": 34.6143
   },
+  "SkillCheck": [
+    {"areaSize": 30, "speedMultiplier": 0.5},
+    {"areaSize": 30, "speedMultiplier": 0.5},
+    {"areaSize": 30, "speedMultiplier": 0.5},
+    {"areaSize": 30, "speedMultiplier": 0.5}
+  ],
   "ChopAnimDict": "melee@large_wpn@streamed_core_fps",
   "ChopAnim":  "car_side_attack_a",
   "Hatchet": "prop_w_me_hatchet",

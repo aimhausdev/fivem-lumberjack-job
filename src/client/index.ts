@@ -2,28 +2,19 @@ import Config from '@common/config'
 import { loadModel, loadAnimDict, wait } from '@common'
 import { Point } from '@overextended/ox_lib/client'
 import ox from '@overextended/ox_lib/client'
-import { hashToModel as HASH_TO_MODEL } from './hashToModel'
 import * as V from './vector'
-import TreeBlip from './TreeBlip'
 import TreeBlipManager, { TreeData } from './TreeBlipManager'
 import PlayerStateManager from './PlayerStateManager'
 import { print, sendServer, handleServer } from './utils'
+import { shapetest } from './raycast'
 
 export * from './sandbox'
 
-const hashToModel = HASH_TO_MODEL as unknown as Map<any, string>
-const { debug } = Config
 const UP = [0, 0, 1]
 
 let lumberBossPed: number = 0
 type LumberBoss = { id: number, netId: number, ulid?: string }
 let lumberBoss: LumberBoss = { id: 0, netId: 0, ulid: '' }
-
-let outlinedEntity = 0
-let selectedModel: string
-
-interface SphereData { spheres: number[][], drawing: boolean, }
-const sphereData: SphereData = { spheres: [], drawing: true, }
 
 let createdObjects: number[] = []
 let trees: TreeData[] = []
@@ -38,7 +29,6 @@ const clearObjects = () => {
 }
 
 const clearTrees = () => {
-  // trees.forEach(t => t.destroy(true))
   trees = []
 }
 
@@ -46,110 +36,12 @@ const clearAll = () => {
   clearObjects()
   clearTrees()
   TM.clear()
-  PSM._reset()
+  PSM.reset()
   savedCoords = []
   if (DoesEntityExist(lumberBoss.id)) {
     DeleteEntity(lumberBoss.id)
     lumberBoss = { id: 0, netId: 0 }
   }
-}
-
-const spawnLumberBoss = async () => {
-  const lumberBossModel = Config.LumberBossModel
-  await loadModel(lumberBossModel)
-
-  if (DoesEntityExist(lumberBoss.id)) { DeleteEntity(lumberBoss.id) }
-
-  const { x, y, z, w } = Config.LumberBossCoords
-  lumberBoss.id = CreatePed(1, lumberBossModel, x, y, z, w, true, false)
-
-  while (!DoesEntityExist(lumberBoss.id)) { await wait(10) }
-
-  lumberBoss.netId = PedToNet(lumberBoss.id)
-
-  FreezeEntityPosition(lumberBoss.id, true)
-  SetEntityInvincible(lumberBoss.id, true)
-  SetBlockingOfNonTemporaryEvents(lumberBoss.id, true)
-
-  Entity(lumberBoss.id)?.state?.set('lumberBoss', true, true) // let everyone know this guy's the boss
-
-  return lumberBoss
-}
-
-const raycastFromCamera = async (dist: number = 2000) => {
-  const L = dist > 0 ? dist : 2000
-
-  const [[x1, y1, z1], [nx, ny, nz]] = GetWorldCoordFromScreenCoord(0.5, 0.5)
-  const [x2, y2, z2] = [x1 + nx*L, y1 + ny*L, z1 + nz*L]
-
-  const handle = StartShapeTestLosProbe(x1, y1, z1, x2, y2, z2, -1, PlayerPedId(), 4)
-
-  let result = GetShapeTestResult(handle)
-  while (result[0] === 1) {
-    await wait(0)
-    result = GetShapeTestResult(handle)
-  }
-
-  return result
-}
-
-const drawSpheres = async () => {
-  sphereData.drawing = true
-  while (sphereData.spheres.length && sphereData.drawing) {
-    const now = Date.now()
-    sphereData.spheres = sphereData.spheres.filter(([,,, t,,,]) => (now - t < 5000))
-    const r = 0.025
-    sphereData.spheres.forEach(([x, y, z, _, nx, ny, nz]) => {
-      DrawLine(x, y, z, x+1, y, z, 255, 0, 0, 255)
-      DrawLine(x, y, z, x, y+1, z, 0, 255, 0, 255)
-      DrawLine(x, y, z, x, y, z+1, 0, 0, 255, 255)
-      DrawLine(x, y, z, x+nx, y+ny, z+nz, 255, 0, 255, 255)
-    })
-    await wait(0)
-  }
-}
-
-const addSphere = (x: number, y: number, z: number, nx: number = 0, ny: number = 0, nz: number = 1) => {
-  sphereData.spheres.push([x, y, z, Date.now(), nx, ny, nz])
-  drawSpheres()
-}
-
-const shapetest = async () => {
-  const result = await raycastFromCamera()
-  const [, hit, endCoords, surfaceNormal, entityHit] = result
-
-  let hash: string|number
-
-  if (hit) {
-    try { hash = GetEntityModel(entityHit) } catch (e) {}
-    // @ts-ignore
-    // print(entityHit, hash, hashToModel[hash])
-    if (IsEntityAnObject(entityHit)) print('hit an object')
-    // @ts-ignore
-    selectedModel = hashToModel[hash] || selectedModel
-    if (debug) {
-      const [x, y, z] = endCoords
-      const [nx, ny, nz] = V.normalize(surfaceNormal)
-      addSphere(x, y, z, nx, ny, nz)
-    }
-  } else {
-    selectedModel = null
-  }
-
-  if (debug && outlinedEntity) {
-    SetEntityDrawOutline(outlinedEntity, false)
-    outlinedEntity = 0
-  }
-
-  if (debug && !IsEntityAPed(entityHit)) {
-    outlinedEntity = entityHit
-    SetEntityDrawOutline(entityHit, true)
-    SetEntityDrawOutlineColor(0, 255, 0, 255)
-    SetEntityDrawOutlineShader(1)
-  }
-
-  // @ts-ignore
-  return {result, model: hashToModel[hash], hash}
 }
 
 let hatchetId: number = -1
@@ -174,24 +66,8 @@ const playChoppingAnimation = async () => {
   }
 }
 
-const rand = (min: number, max: number) => min + (max - min)*Math.random()
-
-const animateTreeFalling = (tree: number) => {
-  const model = GetEntityModel(tree)
-  const [min, max] = GetModelDimensions(model)
-  const [,,h] = V.sub(max, min)
-  print(`size:${V.sub(max, min)}`)
-  FreezeEntityPosition(tree, false)
-  const minF = -1
-  const maxF = 1
-  const [fx, fy] = [rand(minF, maxF), rand(minF, maxF)]
-  // ApplyForceToEntity(tree, 1, .5, 0, 0, 0, 0, h, 0, false, true, true, false, true)
-  SetEntityAngularVelocity(tree, Math.random()*1, Math.random()*1, Math.random()*3)
-  setTimeout(() => DeleteEntity(tree), 10000)
-}
-
 const chopDownTree = async (target: number) => {
-  print(`attempting to chop down tree=${target}`)
+  print(`Attempting to chop down tree=${target}`)
   altMenuOpen = false
   SetNuiFocus(false, false)
   TaskTurnPedToFaceEntity(PlayerPedId(), target, 1500)
@@ -199,13 +75,8 @@ const chopDownTree = async (target: number) => {
   playChoppingAnimation()
   let success = false
   try {
-    success = await ox.skillCheck([
-      {areaSize: 30, speedMultiplier: 0.5},
-      {areaSize: 30, speedMultiplier: 0.5},
-      {areaSize: 30, speedMultiplier: 0.5},
-      {areaSize: 30, speedMultiplier: 0.5},
-    ])
-    print(`woodcutting complete, you ${success ? 'did it!' : 'fucking suck dude'}`)
+    success = await ox.skillCheck(Config.SkillCheck)
+    print(`Woodcutting complete, you ${success ? 'did it!' : 'fucking suck dude'}`)
   } catch (e) {
     console.error(e)
   }
@@ -236,7 +107,7 @@ RegisterCommand('st', async (source: number, args: string[]) => {
   DisablePlayerFiring(PlayerId(), true)
 
   const {result: [, hit, endCoords, surfaceNormal, entityHit], model} = await shapetest()
-  print(hit, entityHit, selectedModel, !model, V.dot(UP, surfaceNormal))
+  print(hit, entityHit, !model, V.dot(UP, surfaceNormal))
 
   if (hit && entityHit && !model && V.dot(UP, surfaceNormal) > 0.8) {
     savedCoords.push(endCoords)
@@ -262,13 +133,10 @@ RegisterCommand('clear', () => {
   clearAll()
 }, false)
 
-let currentTarget: TreeBlip
-let altKeyPressed = false
 let altMenuOpen = false
 RegisterCommand('+peek', async () => {
   if (IsPauseMenuActive()) return
   print('ALT KEY HAS BEEN PRESSED')
-  altKeyPressed = true
   altMenuOpen = true
 
   SetCursorLocation(0.48, 0.5) // prevents some weird bug where the UI gets stuck when you click too fast on the same item again
@@ -287,47 +155,27 @@ RegisterCommand('+peek', async () => {
     const {result: [, hit, endCoords, , entityHit]} = await shapetest()
     const pos = GetEntityCoords(PlayerPedId(), false)
 
-    print(`player location: ${pos}, MaxDist=${Config.MaxDist}, dist=${entityHit > 0 ? V.dist(pos, endCoords) : 0}`)
+    print(`player location: ${pos}, MaxDist=${Config.MaxRaycastHitDistance}, dist=${entityHit > 0 ? V.dist(pos, endCoords) : 0}`)
 
-    const somethingHit = hit && entityHit > 0 && V.dist(pos, endCoords) < Config.MaxDist
-    const tree = TM.getTree(entityHit)
+    const somethingHit = hit && entityHit > 0 && V.dist(pos, endCoords) < Config.MaxRaycastHitDistance
     const isTree = somethingHit && Entity(entityHit)?.state?.tree
     const isLumberBoss = somethingHit && Entity(entityHit)?.state?.lumberBoss
+    const isLumber = somethingHit && Entity(entityHit)?.state?.lumber
 
-    if (isTree && PSM.isWorking()) {
-
-      currentTarget = tree
-      print(`ALT held down, current target = ${currentTarget?.id}`)
-      SendNUIMessage({
-        action: 'setOptions',
-        data: [{action: 'chopTree', label: `Tree ${entityHit}`, value: entityHit}],
-      })
-
-    } else if (isLumberBoss) {
-
-      SendNUIMessage({
-        action: 'setOptions',
-        data: PSM.isUnemployed() 
-          ? [{action: 'startJob', label: `Start choppin'`, value: 'startJob'}]
-          : PSM.isComplete()
-          ? [{action: 'turnInJob', label: 'Get Paid', value: 'turnInJob'}]
-          : PSM.isWorking()
-          ? [{action: 'quitJob', label: 'Bitch out', value: 'quitJob'}]
-          : []
-      })
-
-    } else if (somethingHit && Entity(entityHit)?.state?.lumber) {
-
-      SendNUIMessage({
-        action: 'setOptions',
-        data: [{ action: 'pickUpLog', label: `Pick Up (log ${entityHit})`, value: entityHit }],
-      })
-
-    } else {
-
-      SendNUIMessage({ action: 'setOptions', data: [] })
-
-    }
+    SendNUIMessage({
+      action: 'setOptions',
+      data: isTree && PSM.isWorking()
+        ? [{action: 'chopTree', label: `Cut Down`, value: entityHit}]
+        : isLumber
+        ? [{ action: 'pickUpLog', label: `Pick Up`, value: entityHit }]
+        : isLumberBoss && PSM.isUnemployed() 
+        ? [{action: 'startJob', label: `Start choppin'`, value: 'startJob'}]
+        : isLumberBoss && PSM.isComplete()
+        ? [{action: 'turnInJob', label: 'Get Paid', value: 'turnInJob'}]
+        : isLumberBoss && PSM.isWorking()
+        ? [{action: 'quitJob', label: 'Quit', value: 'quitJob'}]
+        : []
+    })
 
     await wait(250)
   }
@@ -335,7 +183,7 @@ RegisterCommand('+peek', async () => {
 
 RegisterCommand('-peek', async () => {
   print('ALT key released')
-  altKeyPressed = false
+  // altKeyPressed = false
 }, false)
 
 RegisterNuiCallback('setNuiFocus', (_: null, cb: (data: unknown) => void) => {
@@ -406,7 +254,7 @@ AddEventHandler('onClientResourceStart', async (resource: string) => {
     loadModel(GetHashKey(Config.Logs[0])),
   ])
 
-  PSM._reset()
+  PSM.reset()
 })
 
 handleServer(`loadTrees`, (treeData: TreeData[]) => {
@@ -463,27 +311,6 @@ handleServer(`initLumberBoss`, async (bossData: LumberBoss) => {
       configureLumberBoss(bossData)
     }
   })
-})
-
-RegisterCommand('netId', (source: number, args: string[]) => {
-  const netId = parseInt(args[0]) || 0
-  print(`'netId' command checking netId=${netId} (raw="${args[0]}")`)
-  const id = NetworkGetEntityFromNetworkId(netId)
-  print(`netId=${netId} corresponds to local entity with id=${NetworkGetEntityFromNetworkId(netId)} (NetToPed=${NetToPed(netId)})`)
-  print(`entity state for id=${id} is {lumberBoss: ${Entity(id)?.state?.lumberBoss}}`)
-}, false)
-
-handleServer('createLumberBoss', async () => {
-  print(`Client received 'createLumberBoss' event. Creating the big guy...`)
-
-  const boss = await spawnLumberBoss()
-  print(`Client created boss=${JSON.stringify(boss)}`)
-  print(`Client now has lumberBoss=${JSON.stringify(lumberBoss)}`)
-
-  Entity(boss.id)?.state?.set('lumberBoss', true, true) // tell everyone this guy is the lumber boss
-  print(`Client 'createLumberBoss' set entity state to {lumberBoss: ${Entity(boss.id)?.state?.lumberBoss}}`)
-
-  sendServer('initLumberBoss', lumberBoss)
 })
 
 handleServer('lumberBossUlid', bossUlid => {
