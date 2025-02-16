@@ -18,8 +18,6 @@ let lumberBoss: LumberBoss = { id: 0, netId: 0 }
 
 let tree: Tree
 
-let creatingLumberBoss = false
-
 /**
  * utility functions
  */
