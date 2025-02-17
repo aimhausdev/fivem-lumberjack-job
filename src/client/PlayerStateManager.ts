@@ -1,6 +1,6 @@
 import TreeManager from './TreeBlipManager'
 import { JobState } from './constants'
-import { print } from './utils'
+import { print } from '@common'
 
 export default class PlayerStateManager {
   protected state: JobState = JobState.NONE

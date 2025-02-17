@@ -1,7 +1,7 @@
-import { wait } from '@common'
+import { wait, print } from '@common'
 import Config from '@common/config'
 import Tree from './Tree'
-import { print, sendClient } from './utils'
+import { sendClient } from './utils'
 
 type TreeMap = { [key: string]: Tree }
 

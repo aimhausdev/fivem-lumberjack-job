@@ -1,6 +1,6 @@
 {
   "EnableNuiCommand": true,
-  "debug": true,
+  "debug": false,
   "LumberBossModel": "cs_floyd",
   "LumberBossCoords": {
     "x": -841.295166015625,

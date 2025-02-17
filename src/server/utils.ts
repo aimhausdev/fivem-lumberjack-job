@@ -1,8 +1,8 @@
 import { cache } from '@overextended/ox_lib/server';
-import Config from '@common/config'
+// import Config from '@common/config'
 
 // debug print
-export const print = (...args: any[]) => Config.debug && console.log(...args)
+// export const print = (...args: any[]) => Config.debug && console.log(...args)
 
 // wrapper for sending events to client
 export const sendClient = (event: string, destination: number, ...args: any[]) => emitNet(`${cache.resource}:client:${event}`, destination, ...args)

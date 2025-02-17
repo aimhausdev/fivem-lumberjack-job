@@ -1,10 +1,11 @@
 import { ulid } from 'ulidx'
+// import { addCommand } from '@overextended/ox_lib/server'
 import Config from '@common/config'
-import { wait } from '@common'
-import { addCommand } from '@overextended/ox_lib/server';
+import { wait, print } from '@common'
 import Tree from './Tree'
-import TreeManager from './TreeManager';
-import { sendClient, handleClient, print } from './utils';
+import TreeManager from './TreeManager'
+import { sendClient, handleClient } from './utils'
+import { spawnBoss, spawnLog, clearSpawns } from './spawn'
 
 /**
  * script globals
@@ -32,78 +33,50 @@ const clearAll = () => {
   tree = null
 
   if (lumberBoss.id) DeleteEntity(lumberBoss.id)
+  
+  clearSpawns()
 }
 
-// create quest-giver entity
-const spawnBoss = async () => {
-  const lumberBossModel = Config.LumberBossModel
+// // create quest-giver entity
+// const spawnBoss = async () => {
+//   const lumberBossModel = Config.LumberBossModel
 
-  if (DoesEntityExist(lumberBoss.id)) DeleteEntity(lumberBoss.id)
+//   if (DoesEntityExist(lumberBoss.id)) DeleteEntity(lumberBoss.id)
 
-  lumberBoss = { id: 0, netId: 0, ulid: ulid() }
+//   lumberBoss = { id: 0, netId: 0, ulid: ulid() }
 
-  const { x, y, z, w } = Config.LumberBossCoords
-  lumberBoss.id = CreatePed(1, lumberBossModel, x, y, z+1, w, true, true)
+//   const { x, y, z, w } = Config.LumberBossCoords
+//   lumberBoss.id = CreatePed(1, lumberBossModel, x, y, z+1, w, true, true)
 
-  while (!DoesEntityExist(lumberBoss.id)) { await wait(10); print('waiting for ped...') }
+//   while (!DoesEntityExist(lumberBoss.id)) { await wait(10); print('waiting for ped...') }
 
-  print(`Server spawnBoss() created lumberBoss ped with id=${lumberBoss.id}`)
-  lumberBoss.netId = NetworkGetNetworkIdFromEntity(lumberBoss.id)
+//   print(`Server spawnBoss() created lumberBoss ped with id=${lumberBoss.id}`)
+//   lumberBoss.netId = NetworkGetNetworkIdFromEntity(lumberBoss.id)
 
-  print(`Server spawnBoss() NetworkGetEntityFromNetworkId(netId=${lumberBoss.netId}) = ${NetworkGetEntityFromNetworkId(lumberBoss.netId)}`)
-  print('Server spawnBoss() has lumberBoss =', JSON.stringify(lumberBoss))
+//   print(`Server spawnBoss() NetworkGetEntityFromNetworkId(netId=${lumberBoss.netId}) = ${NetworkGetEntityFromNetworkId(lumberBoss.netId)}`)
+//   print('Server spawnBoss() has lumberBoss =', JSON.stringify(lumberBoss))
 
-  Entity(lumberBoss.id)?.state?.set('lumberBoss', true, true)
-  FreezeEntityPosition(lumberBoss.id, true)
+//   Entity(lumberBoss.id)?.state?.set('lumberBoss', true, true)
+//   FreezeEntityPosition(lumberBoss.id, true)
 
-  return lumberBoss
-}
+//   return lumberBoss
+// }
 
-// create log pickup after a tree is cut down
-const spawnLog = async ([x, y, z]: number[]) => {
-  const logId = CreateObjectNoOffset(GetHashKey(Config.Logs[0]), x, y, z+4, true, true, false)
+// // create log pickup after a tree is cut down
+// const spawnLog = async ([x, y, z]: number[]) => {
+//   const logId = CreateObjectNoOffset(GetHashKey(Config.Logs[0]), x, y, z+4, true, true, false)
 
-  while (!DoesEntityExist(logId)) await wait(10)
+//   while (!DoesEntityExist(logId)) await wait(10)
 
-  print(`Server spawned log with id=${logId} at coords [${x}, ${y}, ${z+4}]`)
-  spawnedLogs.push(logId)
+//   print(`Server spawned log with id=${logId} at coords [${x}, ${y}, ${z+4}]`)
+//   spawnedLogs.push(logId)
 
-  SetEntityRotation(logId, 90, 0, 0, 0, false)
-  SetEntityVelocity(logId, 3*Math.random(), 3*Math.random(), 4)
-  Entity(logId)?.state?.set('lumber', true, true)
+//   SetEntityRotation(logId, 90, 0, 0, 0, false)
+//   SetEntityVelocity(logId, 3*Math.random(), 3*Math.random(), 4)
+//   Entity(logId)?.state?.set('lumber', true, true)
 
-  return logId
-}
-
-/**
- * commands (TODO: remove all of these)
- */
-
-addCommand('spawnBoss', async (source) => {
-  const src = source
-  await spawnBoss()
-  print(`In server 'spawnBoss' command, source=${src}`)
-  print(`Server sending client lumberBoss=${JSON.stringify(lumberBoss)}`)
-  sendClient('initLumberBoss', src, lumberBoss)
-}, {restricted: false})
-
-addCommand('far', async (source) => {
-  const [x, y, z] = [ -665.6239624023438, 3607.78076171875, 296.2198791503906 ]
-  SetEntityCoords(GetPlayerPed(`${source}`), x, y, z, false, false, false, false)
-}, {restricted: false})
-
-addCommand('trees', async (source) => {
-  const [x, y, z] = [ -550.0237426757812, 3080.386962890625, 45.91119384765625 ]
-  SetEntityCoords(GetPlayerPed(`${source}`), x, y, z, false, false, false, false)
-}, {restricted: false})
-
-addCommand('log', async (source) => {
-  const src = source
-  print(`Server executing 'log' command and creating a log for player ${src}...`)
-
-  await spawnLog(GetEntityCoords(GetPlayerPed(`${src}`)))
-  print(`Server finished spawning a log for player ${src}`)
-}, {restricted: false})
+//   return logId
+// }
 
 /**
  * built-in server event handlers
@@ -119,10 +92,12 @@ AddEventHandler('onServerResourceStart', async (resource: string) => {
   print(`------------------------------------------------------------------------------------------------------------`)
   print('Starting server aim-lumberjack...')
 
-  await Promise.all([
+  const [ped, ] = await Promise.all([
     spawnBoss(),
     TM.spawnTrees(Config.TreeLocations.Region1),
   ])
+
+  lumberBoss = ped
 })
 
 AddEventHandler('onResourceStop', async (resource: string) => {

@@ -1,24 +1,20 @@
 import Config from '@common/config'
-import { loadModel, loadAnimDict, wait } from '@common'
+import { loadModel, loadAnimDict, wait, print, WARN } from '@common'
 import { Point } from '@overextended/ox_lib/client'
 import ox from '@overextended/ox_lib/client'
 import * as V from './vector'
 import TreeBlipManager, { TreeData } from './TreeBlipManager'
 import PlayerStateManager from './PlayerStateManager'
-import { print, sendServer, handleServer } from './utils'
+import { sendServer, handleServer, enableFiring, disableFiring } from './utils'
 import { shapetest } from './raycast'
 
 export * from './sandbox'
-
-const UP = [0, 0, 1]
 
 let lumberBossPed: number = 0
 type LumberBoss = { id: number, netId: number, ulid?: string }
 let lumberBoss: LumberBoss = { id: 0, netId: 0, ulid: '' }
 
 let createdObjects: number[] = []
-let trees: TreeData[] = []
-let savedCoords: number[][] = []
 
 const TM = new TreeBlipManager()
 const PSM = new PlayerStateManager(TM, 3)
@@ -28,16 +24,16 @@ const clearObjects = () => {
   createdObjects = []
 }
 
-const clearTrees = () => {
-  trees = []
-}
+// const clearTrees = () => {
+//   trees = []
+// }
 
 const clearAll = () => {
   clearObjects()
-  clearTrees()
+  // clearTrees()
   TM.clear()
   PSM.reset()
-  savedCoords = []
+  // savedCoords = []
   if (DoesEntityExist(lumberBoss.id)) {
     DeleteEntity(lumberBoss.id)
     lumberBoss = { id: 0, netId: 0 }
@@ -50,15 +46,19 @@ const playChoppingAnimation = async () => {
   chopping = true
   const animTime = 8000
   const ped = PlayerPedId()
-  await Promise.all([loadAnimDict(Config.ChopAnimDict), loadModel(Config.Hatchet)])
+
+  // await Promise.all([loadAnimDict(Config.ChopAnimDict), loadModel(Config.Hatchet)])
   const [x, y, z] = GetEntityCoords(ped, false)
   const hatchet = CreateObject(Config.Hatchet, x, y, z, true, true, false)
-  hatchetId = hatchet
   const handIndex = GetPedBoneIndex(ped, 0xDEAD)
+  hatchetId = hatchet
+
   AttachEntityToEntity(hatchet, ped, handIndex, 0.1, 0.05, 0, -90, 0, 0, false, false, false, false, 0, true)
   TaskPlayAnim(ped, Config.ChopAnimDict, Config.ChopAnim, 5.0, 5.0, animTime, 1|8|1048576, 1.0, false, false, false)
   FreezeEntityPosition(ped, true)
+
   await wait(animTime)
+
   if (DoesEntityExist(hatchet)) DeleteEntity(hatchet)
   if (chopping) {
     FreezeEntityPosition(ped, false)
@@ -101,61 +101,25 @@ const pickUpLog = async (logId: number) => {
   sendServer('pickUpLog', ObjToNet(logId))
 }
 
-RegisterCommand('st', async (source: number, args: string[]) => {
-  if (IsPauseMenuActive()) return
-
-  DisablePlayerFiring(PlayerId(), true)
-
-  const {result: [, hit, endCoords, surfaceNormal, entityHit], model} = await shapetest()
-  print(hit, entityHit, !model, V.dot(UP, surfaceNormal))
-
-  if (hit && entityHit && !model && V.dot(UP, surfaceNormal) > 0.8) {
-    savedCoords.push(endCoords)
-  }
-}, false)
-
-RegisterCommand('printCoords', () => {
-  print(savedCoords)
-}, false)
-
-RegisterCommand('resetTrees', () => {
-  clearAll()
-  TM.spawnTrees(trees)
-}, false)
-
-RegisterCommand('anim', async () => {
-  playChoppingAnimation()
-}, false)
-
-RegisterKeyMapping('st', 'outline target', 'keyboard', 'END')
-
-RegisterCommand('clear', () => {
-  clearAll()
-}, false)
-
 let altMenuOpen = false
 RegisterCommand('+peek', async () => {
   if (IsPauseMenuActive()) return
   print('ALT KEY HAS BEEN PRESSED')
+  disableFiring()
   altMenuOpen = true
 
   SetCursorLocation(0.48, 0.5) // prevents some weird bug where the UI gets stuck when you click too fast on the same item again
   SetNuiFocus(true, false)
   SendNUIMessage({ action: 'setOptions', data: [] })
-  SendNUIMessage({
-    action: 'setVisible',
-    data: { visible: true, },
-  })
+  SendNUIMessage({ action: 'setVisible', data: { visible: true, } })
 
   while (altMenuOpen) {
-    DisablePlayerFiring(PlayerId(), true)
-
-    SendNUIMessage({ action: 'setTarget', data: { target: 0 } })
+    // DisablePlayerFiring(PlayerId(), true)
 
     const {result: [, hit, endCoords, , entityHit]} = await shapetest()
     const pos = GetEntityCoords(PlayerPedId(), false)
 
-    print(`player location: ${pos}, MaxDist=${Config.MaxRaycastHitDistance}, dist=${entityHit > 0 ? V.dist(pos, endCoords) : 0}`)
+    // print(`player location: ${pos}, MaxDist=${Config.MaxRaycastHitDistance}, dist=${entityHit > 0 ? V.dist(pos, endCoords) : 0}`)
 
     const somethingHit = hit && entityHit > 0 && V.dist(pos, endCoords) < Config.MaxRaycastHitDistance
     const isTree = somethingHit && Entity(entityHit)?.state?.tree
@@ -177,7 +141,7 @@ RegisterCommand('+peek', async () => {
         : []
     })
 
-    await wait(250)
+    await wait(0)
   }
 }, false)
 
@@ -198,6 +162,7 @@ RegisterNuiCallback('closeMenu', (data: null, cb: (data: unknown) => void) => {
   print('closeMenu called from client script')
   altMenuOpen = false
   SetNuiFocus(false, false)
+  enableFiring()
   cb({})
 })
 
@@ -232,12 +197,12 @@ RegisterNuiCallback('uiAction', ({action, value}: UIActionType, cb: (data: unkno
   }
 })
 
-type AnimationData = {target: number;}
+// type AnimationData = {target: number;}
 
-RegisterNuiCallback('playAnimation', async ({target}: AnimationData, cb: (data: unknown) => void) => {
-  chopDownTree(target)
-  cb({})
-})
+// RegisterNuiCallback('playAnimation', async ({target}: AnimationData, cb: (data: unknown) => void) => {
+//   chopDownTree(target)
+//   cb({})
+// })
 
 RegisterKeyMapping('+peek', 'on pressed/released test', 'keyboard', 'LMENU')
 
@@ -252,6 +217,8 @@ AddEventHandler('onClientResourceStart', async (resource: string) => {
   await Promise.all([
     ...Config.Trees.map(([model, _]) => loadModel(GetHashKey(`${model}`))),
     loadModel(GetHashKey(Config.Logs[0])),
+    loadModel(Config.Hatchet),
+    loadAnimDict(Config.ChopAnimDict),
   ])
 
   PSM.reset()
@@ -260,7 +227,7 @@ AddEventHandler('onClientResourceStart', async (resource: string) => {
 handleServer(`loadTrees`, (treeData: TreeData[]) => {
   print('Client loading trees:', JSON.stringify(treeData))
   TM.spawnTrees(treeData)
-  trees = treeData
+  // trees = treeData
 })
 
 handleServer('loadTree', (treeData: TreeData) => {
@@ -274,15 +241,17 @@ const configureLumberBoss = async (bossData: LumberBoss) => {
   lumberBoss = bossData
 
   print(`Client NetToPed(id=${lumberBoss.netId}) -> local entity with id=${NetToPed(lumberBoss.netId)}`)
+
   const start = Date.now()
   let id = NetToPed(lumberBoss.netId)
+
   while (!id && Date.now() - start < 5000) { // wait up to 5s for the remote network object to be created locally
     print(`Client 'initLumberBoss' waiting for local entity with netId=${lumberBoss.netId}... (${Date.now() - start}ms elapsed)`)
     await wait(750)
     id = NetToPed(lumberBoss.netId)
   }
 
-  if (!id) print(`Client 'initLumberBoss' timed out trying to find local entity with netId=${lumberBoss.netId}`)
+  if (!id) WARN`Client 'initLumberBoss' timed out trying to find local entity with netId=${lumberBoss.netId}`
 
   lumberBoss.id = NetToPed(lumberBoss.netId)
   print(`Client set lumberBoss.id=${lumberBoss.id}`)
@@ -319,7 +288,7 @@ handleServer('lumberBossUlid', bossUlid => {
   print(`Client finally has lumberBoss=${JSON.stringify(lumberBoss)} and lumberBoss state = {lumberBoss: ${Entity(lumberBoss.id)?.state?.lumberBoss}}`)
 })
 
-RegisterCommand('makeTreePlease', () => sendServer('makeTreePlease'), false)
+// RegisterCommand('makeTreePlease', () => sendServer('makeTreePlease'), false)
 
 AddEventHandler('onResourceStop', async (resource: string) => {
   if (resource !== GetCurrentResourceName()) return

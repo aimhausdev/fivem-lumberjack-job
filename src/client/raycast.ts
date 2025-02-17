@@ -1,5 +1,5 @@
 import Config from '@common/config'
-import { wait } from '@common'
+import { wait, print } from '@common'
 import { hashToModel as HASH_TO_MODEL } from './hashToModel'
 import * as V from './vector'
 
@@ -55,32 +55,32 @@ export const shapetest = async () => {
 
   let hash: string|number
 
-  if (hit) {
-    try { hash = GetEntityModel(entityHit) } catch (e) {}
-    // @ts-ignore
-    // print(entityHit, hash, hashToModel[hash])
-    if (IsEntityAnObject(entityHit)) print('hit an object')
-    // @ts-ignore
-    selectedModel = hashToModel[hash] || selectedModel
-    if (Config.debug) {
+  if (Config.debug) {
+    if (hit) {
+      try { hash = GetEntityModel(entityHit) } catch (e) {}
+      // @ts-ignore
+      // print(entityHit, hash, hashToModel[hash])
+      if (IsEntityAnObject(entityHit)) print('hit an object')
+      // @ts-ignore
+      selectedModel = hashToModel[hash] || selectedModel
       const [x, y, z] = endCoords
       const [nx, ny, nz] = V.normalize(surfaceNormal)
       addSphere(x, y, z, nx, ny, nz)
+    } else {
+      selectedModel = null
     }
-  } else {
-    selectedModel = null
-  }
 
-  if (Config.debug && outlinedEntity) {
-    SetEntityDrawOutline(outlinedEntity, false)
-    outlinedEntity = 0
-  }
+    if (outlinedEntity) {
+      SetEntityDrawOutline(outlinedEntity, false)
+      outlinedEntity = 0
+    }
 
-  if (Config.debug && !IsEntityAPed(entityHit)) {
-    outlinedEntity = entityHit
-    SetEntityDrawOutline(entityHit, true)
-    SetEntityDrawOutlineColor(0, 255, 0, 255)
-    SetEntityDrawOutlineShader(1)
+    if (!IsEntityAPed(entityHit)) {
+      outlinedEntity = entityHit
+      SetEntityDrawOutline(entityHit, true)
+      SetEntityDrawOutlineColor(0, 255, 0, 255)
+      SetEntityDrawOutlineShader(1)
+    }
   }
 
   // @ts-ignore
