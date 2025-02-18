@@ -9,15 +9,3 @@ export function LoadJsonFile<T = unknown>(path: string): T {
 }
 
 export const wait = (time: number) => new Promise(resolve => setTimeout(resolve, time, null))
-
-export const loadModel = async (model: string|number) => {
-  RequestModel(model)
-  while (!HasModelLoaded(model)) await wait(10)
-  return
-}
-
-export const loadAnimDict = async (animDict: string) => {
-  RequestAnimDict(animDict)
-  while (!HasAnimDictLoaded(animDict)) await wait(10)
-  return
-}

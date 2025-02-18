@@ -12,7 +12,6 @@ const _deleteIfExists = (id: number) => {if (DoesEntityExist(id)) DeleteEntity(i
 export const spawnBoss = async () => {
   const lumberBossModel = Config.LumberBossModel
 
-  // if (DoesEntityExist(lumberBoss.id)) DeleteEntity(lumberBoss.id)
   _deleteIfExists(lumberBoss.id)
 
   lumberBoss = { id: 0, netId: 0, ulid: ulid() }

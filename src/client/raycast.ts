@@ -8,16 +8,18 @@ const hashToModel = HASH_TO_MODEL as unknown as Map<any, string>
 let outlinedEntity = 0
 let selectedModel: string
 
-interface SphereData { spheres: number[][], drawing: boolean, }
-const sphereData: SphereData = { spheres: [], drawing: true, }
+interface AxesData { coords: number[][], drawing: boolean, }
+const axesData: AxesData = { coords: [], drawing: true, }
 
-const drawSpheres = async () => {
-  sphereData.drawing = true
-  while (sphereData.spheres.length && sphereData.drawing) {
+const DEBUG_DRAW_TIME = 5000
+
+// draws little cartesian axes and a surface normal at the given location
+const drawXYZN = async () => {
+  axesData.drawing = true
+  while (axesData.coords.length && axesData.drawing) {
     const now = Date.now()
-    sphereData.spheres = sphereData.spheres.filter(([,,, t,,,]) => (now - t < 5000))
-    // const r = 0.025
-    sphereData.spheres.forEach(([x, y, z, _, nx, ny, nz]) => {
+    axesData.coords = axesData.coords.filter(([,,, t,,,]) => (now - t < DEBUG_DRAW_TIME)) // remove expired locations
+    axesData.coords.forEach(([x, y, z, _, nx, ny, nz]) => {
       DrawLine(x, y, z, x+1, y, z, 255, 0, 0, 255)
       DrawLine(x, y, z, x, y+1, z, 0, 255, 0, 255)
       DrawLine(x, y, z, x, y, z+1, 0, 0, 255, 255)
@@ -27,11 +29,12 @@ const drawSpheres = async () => {
   }
 }
 
-const addSphere = (x: number, y: number, z: number, nx: number = 0, ny: number = 0, nz: number = 1) => {
-  sphereData.spheres.push([x, y, z, Date.now(), nx, ny, nz])
-  drawSpheres()
+const addAxes = (x: number, y: number, z: number, nx: number = 0, ny: number = 0, nz: number = 1) => {
+  axesData.coords.push([x, y, z, Date.now(), nx, ny, nz])
+  drawXYZN()
 }
 
+// raycast from middle of screen
 export const raycastFromCamera = async (dist: number = 2000) => {
   const L = dist > 0 ? dist : 2000
 
@@ -65,7 +68,7 @@ export const shapetest = async () => {
       selectedModel = hashToModel[hash] || selectedModel
       const [x, y, z] = endCoords
       const [nx, ny, nz] = V.normalize(surfaceNormal)
-      addSphere(x, y, z, nx, ny, nz)
+      addAxes(x, y, z, nx, ny, nz)
     } else {
       selectedModel = null
     }

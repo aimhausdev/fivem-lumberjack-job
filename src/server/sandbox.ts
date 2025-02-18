@@ -1,6 +1,6 @@
 import { addCommand } from '@overextended/ox_lib/server'
 import Config from '@common/config'
-import { print } from '@common'
+import { print, INFO } from '@common'
 import { sendClient } from './utils'
 import { spawnBoss, spawnLog } from './spawn'
 
@@ -8,6 +8,8 @@ Config.debug && (() => {
   /**
    * commands (TODO: remove all of these)
    */
+
+  INFO`*** Loading dev sandbox server functions ***`
   
   addCommand('spawnBoss', async (source) => {
     const src = source
