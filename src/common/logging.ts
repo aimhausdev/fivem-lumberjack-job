@@ -2,6 +2,7 @@ import Config from './config'
 
 export const _print = (...args: any[]) => Config.debug && console.log(...args)
 
+// utility function to interweave two arrays: _weave([1, 2, 3, 4], [a, b]) -> [1, a, 2, b, 3, 4]
 const _weave = (a: TemplateStringsArray, b: any[]) => {
   const out: any[] = []
   let i = 0
@@ -14,6 +15,13 @@ const _weave = (a: TemplateStringsArray, b: any[]) => {
   }
   return out
 }
+
+/**
+ * More useful debug logging with template tags. Example:
+ * 
+ * INFO`Here's some useful info...`
+ * ERROR`You done fucked it up: ${error}`
+ */
 
 export const INFO = (strings: TemplateStringsArray, ...args: any[]) => Config.debug && console.log(` [INFO] [${(new Date()).toISOString()}] ${_weave(strings, args).join('')}`)
 

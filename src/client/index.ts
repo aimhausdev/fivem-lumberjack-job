@@ -1,12 +1,19 @@
 import Config from '@common/config'
-import { loadModel, loadAnimDict, wait, print, WARN } from '@common'
+import { wait, print, WARN } from '@common'
 import { Point } from '@overextended/ox_lib/client'
 import ox from '@overextended/ox_lib/client'
 import * as V from './vector'
 import TreeBlipManager, { TreeData } from './TreeBlipManager'
 import PlayerStateManager from './PlayerStateManager'
-import { sendServer, handleServer, enableFiring, disableFiring } from './utils'
 import { shapetest } from './raycast'
+import {
+  loadModel,
+  loadAnimDict,
+  sendServer,
+  handleServer,
+  enableFiring,
+  disableFiring
+} from './utils'
 
 export * from './sandbox'
 
@@ -24,13 +31,8 @@ const clearObjects = () => {
   createdObjects = []
 }
 
-// const clearTrees = () => {
-//   trees = []
-// }
-
 const clearAll = () => {
   clearObjects()
-  // clearTrees()
   TM.clear()
   PSM.reset()
   // savedCoords = []
@@ -47,7 +49,6 @@ const playChoppingAnimation = async () => {
   const animTime = 8000
   const ped = PlayerPedId()
 
-  // await Promise.all([loadAnimDict(Config.ChopAnimDict), loadModel(Config.Hatchet)])
   const [x, y, z] = GetEntityCoords(ped, false)
   const hatchet = CreateObject(Config.Hatchet, x, y, z, true, true, false)
   const handIndex = GetPedBoneIndex(ped, 0xDEAD)
@@ -114,12 +115,9 @@ RegisterCommand('+peek', async () => {
   SendNUIMessage({ action: 'setVisible', data: { visible: true, } })
 
   while (altMenuOpen) {
-    // DisablePlayerFiring(PlayerId(), true)
 
     const {result: [, hit, endCoords, , entityHit]} = await shapetest()
     const pos = GetEntityCoords(PlayerPedId(), false)
-
-    // print(`player location: ${pos}, MaxDist=${Config.MaxRaycastHitDistance}, dist=${entityHit > 0 ? V.dist(pos, endCoords) : 0}`)
 
     const somethingHit = hit && entityHit > 0 && V.dist(pos, endCoords) < Config.MaxRaycastHitDistance
     const isTree = somethingHit && Entity(entityHit)?.state?.tree
@@ -141,13 +139,12 @@ RegisterCommand('+peek', async () => {
         : []
     })
 
-    await wait(0)
+    await wait(50)
   }
 }, false)
 
 RegisterCommand('-peek', async () => {
   print('ALT key released')
-  // altKeyPressed = false
 }, false)
 
 RegisterNuiCallback('setNuiFocus', (_: null, cb: (data: unknown) => void) => {
@@ -197,14 +194,7 @@ RegisterNuiCallback('uiAction', ({action, value}: UIActionType, cb: (data: unkno
   }
 })
 
-// type AnimationData = {target: number;}
-
-// RegisterNuiCallback('playAnimation', async ({target}: AnimationData, cb: (data: unknown) => void) => {
-//   chopDownTree(target)
-//   cb({})
-// })
-
-RegisterKeyMapping('+peek', 'on pressed/released test', 'keyboard', 'LMENU')
+RegisterKeyMapping('+peek', 'Peek', 'keyboard', 'LMENU')
 
 AddEventHandler('onClientResourceStart', async (resource: string) => {
   if (resource !== GetCurrentResourceName()) return
@@ -287,8 +277,6 @@ handleServer('lumberBossUlid', bossUlid => {
   lumberBoss.ulid = bossUlid
   print(`Client finally has lumberBoss=${JSON.stringify(lumberBoss)} and lumberBoss state = {lumberBoss: ${Entity(lumberBoss.id)?.state?.lumberBoss}}`)
 })
-
-// RegisterCommand('makeTreePlease', () => sendServer('makeTreePlease'), false)
 
 AddEventHandler('onResourceStop', async (resource: string) => {
   if (resource !== GetCurrentResourceName()) return

@@ -1,14 +1,15 @@
-import { wait, loadModel, print } from '@common'
+import { wait, print, INFO } from '@common'
 import Config from '@common/config'
 import { shapetest } from './raycast'
 import * as V from './vector'
-
-// const print = (...args: any[]) => Config.debug && console.log(...args)
+import { loadModel } from './utils'
 
 Config.debug && (() => {
+
+	INFO`*** Loading dev sandbox client functions ***`
+
 	const UP = [0, 0, 1]
-	
-	// let trees: TreeData[] = []
+
 	let savedCoords: number[][] = []
 	
 	const VALID_WEATHER_TYPES = [
@@ -122,17 +123,8 @@ Config.debug && (() => {
 	
 	RegisterKeyMapping('st', 'outline target', 'keyboard', 'END')
 	
-	// RegisterCommand('resetTrees', () => {
-	// 	clearAll()
-	// 	TM.spawnTrees(trees)
-	// }, false)
-	
-	// RegisterCommand('anim', async () => {
-	// 	playChoppingAnimation()
-	// }, false)
-	
-	// RegisterCommand('clear', () => {
-	// 	clearAll()
-	// }, false)
+	RegisterCommand('clear', () => {
+		savedCoords = []
+	}, false)
 	
 })()
